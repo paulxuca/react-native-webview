@@ -260,7 +260,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
       Request request = buildRequest(webRequest);
 
       if (request == null) {
-        return null
+        return null;
       }
 
       String address = request.url().toString();
