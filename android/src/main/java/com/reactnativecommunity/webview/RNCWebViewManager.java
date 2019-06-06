@@ -258,9 +258,14 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     @TargetApi(21)
     private WebResourceResponse interceptRequest(WebView webView, WebResourceRequest webRequest) {
       Request request = buildRequest(webRequest);
+
+      if (request == null) {
+        return null
+      }
+
       String address = request.url().toString();
 
-      if (request == null || address.startsWith("data:")) {
+      if (address.startsWith("data:")) {
         return null;
       }
 
