@@ -30,6 +30,8 @@ This document lays out the current public properties and methods for the React N
 - [`mixedContentMode`](Reference.md#mixedcontentmode)
 - [`thirdPartyCookiesEnabled`](Reference.md#thirdpartycookiesenabled)
 - [`userAgent`](Reference.md#useragent)
+- [`applicationNameForUserAgent`](Reference.md#applicationNameForUserAgent)
+- [`allowsFullscreenVideo`](Reference.md#allowsfullscreenvideo)
 - [`allowsInlineMediaPlayback`](Reference.md#allowsinlinemediaplayback)
 - [`bounces`](Reference.md#bounces)
 - [`overScrollMode`](Reference.md#overscrollmode)
@@ -42,6 +44,7 @@ This document lays out the current public properties and methods for the React N
 - [`useWebKit`](Reference.md#usewebkit)
 - [`url`](Reference.md#url)
 - [`html`](Reference.md#html)
+- [`keyboardDisplayRequiresUserAction`](Reference.md#keyboardDisplayRequiresUserAction)
 - [`hideKeyboardAccessoryView`](Reference.md#hidekeyboardaccessoryview)
 - [`allowsBackForwardNavigationGestures`](Reference.md#allowsbackforwardnavigationgestures)
 - [`incognito`](Reference.md#incognito)
@@ -82,7 +85,7 @@ The object passed to `source` can have either of the following shapes:
 
 **Static HTML**
 
-_Note that using static HTML requires the WebView property [originWhiteList](Reference.md#originWhiteList) to `['*']`._
+_Note that using static HTML requires the WebView property [originWhiteList](Reference.md#originWhiteList) to `['*']`. For some content, such as video embeds (e.g. Twitter or Facebook posts with video), the baseUrl needs to be set for the video playback to work_
 
 - `html` (string) - A static HTML page to display in the WebView.
 - `baseUrl` (string) - The base URL to be used for any relative links in the HTML.
@@ -112,6 +115,22 @@ Set this to provide JavaScript that will be injected into the web page when the 
 | string | No       |
 
 To learn more, read the [Communicating between JS and Native](Guide.md#communicating-between-js-and-native) guide.
+
+Example:
+
+Post message a JSON object of `window.location` to be handled by [`onMessage`](Reference.md#onmessage)
+
+```jsx
+const INJECTED_JAVASCRIPT = `(function() {
+    window.ReactNativeWebView.postMessage(JSON.stringify(window.location));
+})();`;
+
+<WebView
+  source={{ uri: 'https://facebook.github.io/react-native' }}
+  injectedJavaScript={INJECTED_JAVASCRIPT}
+  onMessage={this.onMessage}
+/>
+```
 
 ---
 
@@ -368,6 +387,8 @@ title
 url
 ```
 
+Note that this method will not be invoked on hash URL changes (e.g. from `https://example.com/users#list` to `https://example.com/users#help`). There is a workaround for this that is described [in the Guide](Guide.md#intercepting-hash-url-changes).
+
 ---
 
 ### `originWhitelist`
@@ -588,6 +609,24 @@ Sets the user-agent for the `WebView`. This will only work for iOS if you are us
 
 ---
 
+### `applicationNameForUserAgent`
+
+Append to the existing user-agent. Available on iOS WKWebView only. Setting `userAgent` will override this.
+
+| Type   | Required | Platform      |
+| ------ | -------- | ------------- |
+| string | No       | iOS WKWebView |
+
+### `allowsFullscreenVideo`
+
+Boolean that determines whether videos are allowed to be played in fullscreen. The default value is `false`.
+
+| Type | Required | Platform |
+| ---- | -------- | -------- |
+| bool | No       | Android  |
+
+---
+
 ### `allowsInlineMediaPlayback`
 
 Boolean that determines whether HTML5 videos play inline or use the native full-screen controller. The default value is `false`.
@@ -753,6 +792,16 @@ If true, use WKWebView instead of UIWebView.
 | Type   | Required |
 | ------ | -------- |
 | string | No       |
+
+---
+
+### `keyboardDisplayRequiresUserAction`
+
+If false, web content can programmatically display the keyboard when using the WKWebView. The default value is `true`.
+
+| Type    | Required | Platform |
+| ------- | -------- | -------- |
+| boolean | No       | iOS      |
 
 ---
 

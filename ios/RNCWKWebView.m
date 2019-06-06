@@ -36,7 +36,7 @@ static NSURLCredential* clientAuthenticationCredential;
 @property (nonatomic, copy) RCTDirectEventBlock onShouldStartLoadWithRequest;
 @property (nonatomic, copy) RCTDirectEventBlock onNavigationStateChange;
 @property (nonatomic, copy) RCTDirectEventBlock onMessage;
-
+@property (nonatomic, copy) RCTDirectEventBlock onScroll;
 @property (nonatomic, copy) WKWebView *webView;
 @property (nonatomic, strong) WKUserScript *atStartScript;
 @end
@@ -45,8 +45,13 @@ static NSURLCredential* clientAuthenticationCredential;
 {
   UIColor * _savedBackgroundColor;
   BOOL _savedHideKeyboardAccessoryView;
-  NSString * _currentURL;
-  NSString *_currentTitle;
+  BOOL _savedKeyboardDisplayRequiresUserAction;
+  
+  // Workaround for StatusBar appearance bug for iOS 12
+  // https://github.com/react-native-community/react-native-webview/issues/62
+  BOOL _isFullScreenVideoOpen;
+  UIStatusBarStyle _savedStatusBarStyle;
+  BOOL _savedStatusBarHidden;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -60,11 +65,14 @@ static NSURLCredential* clientAuthenticationCredential;
     _directionalLockEnabled = YES;
     _automaticallyAdjustContentInsets = YES;
     _contentInset = UIEdgeInsetsZero;
+    _savedKeyboardDisplayRequiresUserAction = YES;
+    _savedStatusBarStyle = RCTSharedApplication().statusBarStyle;
+    _savedStatusBarHidden = RCTSharedApplication().statusBarHidden;
   }
 
-  // Workaround for a keyboard dismissal bug present in iOS 12
-  // https://openradar.appspot.com/radar?id=5018321736957952
   if (@available(iOS 12.0, *)) {
+    // Workaround for a keyboard dismissal bug present in iOS 12
+    // https://openradar.appspot.com/radar?id=5018321736957952
     [[NSNotificationCenter defaultCenter]
       addObserver:self
       selector:@selector(keyboardWillHide)
@@ -73,8 +81,12 @@ static NSURLCredential* clientAuthenticationCredential;
       addObserver:self
       selector:@selector(keyboardWillShow)
       name:UIKeyboardWillShowNotification object:nil];
+    
+    // Workaround for StatusBar appearance bug for iOS 12
+    // https://github.com/react-native-community/react-native-webview/issues/62
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(toggleFullScreenVideoStatusBars) name:@"_MRMediaRemotePlayerSupportedCommandsDidChangeNotification" object:nil];
   }
-
+  
   return self;
 }
 
@@ -136,6 +148,10 @@ static NSURLCredential* clientAuthenticationCredential;
 #else
     wkWebViewConfig.mediaPlaybackRequiresUserAction = _mediaPlaybackRequiresUserAction;
 #endif
+
+    if (_applicationNameForUserAgent) {
+        wkWebViewConfig.applicationNameForUserAgent = [NSString stringWithFormat:@"%@ %@", wkWebViewConfig.applicationNameForUserAgent, _applicationNameForUserAgent];
+    }
 
     if(_sharedCookiesEnabled) {
       // More info to sending cookies with WKWebView
@@ -232,6 +248,7 @@ static NSURLCredential* clientAuthenticationCredential;
     
     [self addSubview:_webView];
     [self setHideKeyboardAccessoryView: _savedHideKeyboardAccessoryView];
+    [self setKeyboardDisplayRequiresUserAction: _savedKeyboardDisplayRequiresUserAction];
     [self visitSource];
   }
 }
@@ -268,6 +285,24 @@ static NSURLCredential* clientAuthenticationCredential;
   }
   
   [super removeFromSuperview];
+}
+
+-(void)toggleFullScreenVideoStatusBars
+{
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  if (!_isFullScreenVideoOpen) {
+    _isFullScreenVideoOpen = YES;
+    RCTUnsafeExecuteOnMainQueueSync(^{
+      [RCTSharedApplication() setStatusBarStyle:UIStatusBarStyleLightContent animated:YES];
+    });
+  } else {
+    _isFullScreenVideoOpen = NO;
+    RCTUnsafeExecuteOnMainQueueSync(^{
+      [RCTSharedApplication() setStatusBarHidden:_savedStatusBarHidden animated:YES];
+      [RCTSharedApplication() setStatusBarStyle:_savedStatusBarStyle animated:YES];
+    });
+  }
+#pragma clang diagnostic pop
 }
 
 -(void)keyboardWillHide
@@ -434,6 +469,64 @@ static NSURLCredential* clientAuthenticationCredential;
     }
 }
 
+-(void)setKeyboardDisplayRequiresUserAction:(BOOL)keyboardDisplayRequiresUserAction
+{
+    if (_webView == nil) {
+        _savedKeyboardDisplayRequiresUserAction = keyboardDisplayRequiresUserAction;
+        return;
+    }
+  
+    if (_savedKeyboardDisplayRequiresUserAction == true) {
+        return;
+    }
+  
+    UIView* subview;
+  
+    for (UIView* view in _webView.scrollView.subviews) {
+        if([[view.class description] hasPrefix:@"WK"])
+            subview = view;
+    }
+  
+    if(subview == nil) return;
+  
+    Class class = subview.class;
+  
+    NSOperatingSystemVersion iOS_11_3_0 = (NSOperatingSystemVersion){11, 3, 0};
+    NSOperatingSystemVersion iOS_12_2_0 = (NSOperatingSystemVersion){12, 2, 0};
+
+    Method method;
+    IMP override;
+  
+    if ([[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion: iOS_12_2_0]) {
+        // iOS 12.2.0 - Future
+        SEL selector = sel_getUid("_elementDidFocus:userIsInteracting:blurPreviousNode:changingActivityState:userObject:");
+        method = class_getInstanceMethod(class, selector);
+        IMP original = method_getImplementation(method);
+        override = imp_implementationWithBlock(^void(id me, void* arg0, BOOL arg1, BOOL arg2, BOOL arg3, id arg4) {
+            ((void (*)(id, SEL, void*, BOOL, BOOL, BOOL, id))original)(me, selector, arg0, TRUE, arg2, arg3, arg4);
+        });
+    }
+    else if ([[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion: iOS_11_3_0]) {
+        // iOS 11.3.0 - 12.2.0
+        SEL selector = sel_getUid("_startAssistingNode:userIsInteracting:blurPreviousNode:changingActivityState:userObject:");
+        method = class_getInstanceMethod(class, selector);
+        IMP original = method_getImplementation(method);
+        override = imp_implementationWithBlock(^void(id me, void* arg0, BOOL arg1, BOOL arg2, BOOL arg3, id arg4) {
+            ((void (*)(id, SEL, void*, BOOL, BOOL, BOOL, id))original)(me, selector, arg0, TRUE, arg2, arg3, arg4);
+        });
+    } else {
+        // iOS 9.0 - 11.3.0
+        SEL selector = sel_getUid("_startAssistingNode:userIsInteracting:blurPreviousNode:userObject:");
+        method = class_getInstanceMethod(class, selector);
+        IMP original = method_getImplementation(method);
+        override = imp_implementationWithBlock(^void(id me, void* arg0, BOOL arg1, BOOL arg2, id arg3) {
+            ((void (*)(id, SEL, void*, BOOL, BOOL, id))original)(me, selector, arg0, TRUE, arg2, arg3);
+        });
+    }
+  
+    method_setImplementation(method, override);
+}
+
 -(void)setHideKeyboardAccessoryView:(BOOL)hideKeyboardAccessoryView
 {
   
@@ -488,6 +581,30 @@ static NSURLCredential* clientAuthenticationCredential;
   if (!_scrollEnabled) {
     scrollView.bounds = _webView.bounds;
   }
+  else if (_onScroll != nil) {
+    NSDictionary *event = @{
+      @"contentOffset": @{
+          @"x": @(scrollView.contentOffset.x),
+          @"y": @(scrollView.contentOffset.y)
+          },
+      @"contentInset": @{
+          @"top": @(scrollView.contentInset.top),
+          @"left": @(scrollView.contentInset.left),
+          @"bottom": @(scrollView.contentInset.bottom),
+          @"right": @(scrollView.contentInset.right)
+          },
+      @"contentSize": @{
+          @"width": @(scrollView.contentSize.width),
+          @"height": @(scrollView.contentSize.height)
+          },
+      @"layoutMeasurement": @{
+          @"width": @(scrollView.frame.size.width),
+          @"height": @(scrollView.frame.size.height)
+          },
+      @"zoomScale": @(scrollView.zoomScale ?: 1),
+      };
+    _onScroll(event);
+  }
 }
 
 - (void)setDirectionalLockEnabled:(BOOL)directionalLockEnabled
@@ -524,17 +641,18 @@ static NSURLCredential* clientAuthenticationCredential;
   
   // Ensure webview takes the position and dimensions of RNCWKWebView
   _webView.frame = self.bounds;
+  _webView.scrollView.contentInset = _contentInset;
 }
 
 - (NSMutableDictionary<NSString *, id> *)baseEvent
 {
   NSDictionary *event = @{
-                          @"url": _webView.URL.absoluteString ?: @"",
-                          @"title": _webView.title,
-                          @"loading" : @(_webView.loading),
-                          @"canGoBack": @(_webView.canGoBack),
-                          @"canGoForward" : @(_webView.canGoForward)
-                          };
+    @"url": _webView.URL.absoluteString ?: @"",
+    @"title": _webView.title ?: @"",
+    @"loading" : @(_webView.loading),
+    @"canGoBack": @(_webView.canGoBack),
+    @"canGoForward" : @(_webView.canGoForward)
+  };
   return [[NSMutableDictionary alloc] initWithDictionary: event];
 }
 
