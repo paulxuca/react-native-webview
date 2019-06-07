@@ -44,9 +44,16 @@ static NSURLCredential* clientAuthenticationCredential;
 @implementation RNCWKWebView
 {
   UIColor * _savedBackgroundColor;
-  BOOL _savedHideKeyboardAccessoryView;
   NSString * _currentURL;
   NSString *_currentTitle;
+  BOOL _savedHideKeyboardAccessoryView;
+  BOOL _savedKeyboardDisplayRequiresUserAction;
+
+  // Workaround for StatusBar appearance bug for iOS 12
+  // https://github.com/react-native-community/react-native-webview/issues/62
+  BOOL _isFullScreenVideoOpen;
+  UIStatusBarStyle _savedStatusBarStyle;
+  BOOL _savedStatusBarHidden;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
