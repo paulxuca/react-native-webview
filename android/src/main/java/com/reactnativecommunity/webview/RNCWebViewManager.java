@@ -79,6 +79,8 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import ren.yale.android.cachewebviewlib.WebViewCacheInterceptorInst;
+
 /**
  * Manages instances of {@link WebView}
  * <p>
@@ -714,6 +716,34 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     protected boolean mLastLoadFailed = false;
     protected @Nullable
     ReadableArray mUrlPrefixesForDefaultIntent;
+
+    // Caching
+
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+        WebViewCacheInterceptorInst.getInstance().loadUrl(mWebView,request.getUrl().toString());
+        return true;
+    }
+
+    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        WebViewCacheInterceptorInst.getInstance().loadUrl(mWebView,url);
+        return true;
+    }
+
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    @Nullable
+    @Override
+    public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+        return  WebViewCacheInterceptorInst.getInstance().interceptRequest(request);
+    }
+
+    @Nullable
+    @Override
+    public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+        return  WebViewCacheInterceptorInst.getInstance().interceptRequest(url);
+    }
 
     @Override
     public void onPageFinished(WebView webView, String url) {

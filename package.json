@@ -1,5 +1,5 @@
 {
-  "name": "react-native-webview",
+  "name": "@paulxuca/react-native-webview",
   "description": "React Native WebView component for iOS, Android, and Windows 10 (coming soon)",
   "main": "index.js",
   "typings": "index.d.ts",

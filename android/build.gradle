@@ -124,5 +124,6 @@ def kotlin_version = getExtOrDefault('kotlinVersion')
 dependencies {
   //noinspection GradleDynamicVersion
   api 'com.facebook.react:react-native:+'
+  compile 'ren.yale.android:cachewebviewlib:2.0.2'
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 }

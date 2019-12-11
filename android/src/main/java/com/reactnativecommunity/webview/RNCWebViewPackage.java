@@ -9,6 +9,10 @@ import com.facebook.react.uimanager.ViewManager;
 import java.util.Collections;
 import java.util.List;
 
+import ren.yale.android.cachewebviewlib.WebViewCacheInterceptor;
+import ren.yale.android.cachewebviewlib.WebViewCacheInterceptorInst;
+import ren.yale.android.cachewebviewlib.config.CacheExtensionConfig;
+
 public class RNCWebViewPackage implements ReactPackage {
   @Override
   public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
@@ -22,6 +26,8 @@ public class RNCWebViewPackage implements ReactPackage {
 
   @Override
   public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
+    WebViewCacheInterceptorInst.getInstance().init(new WebViewCacheInterceptor.Builder(reactApplicationContext));
+
     return Collections.singletonList(new RNCWebViewManager());
   }
 }
