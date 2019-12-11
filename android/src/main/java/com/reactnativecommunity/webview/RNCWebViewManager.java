@@ -718,20 +718,6 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     ReadableArray mUrlPrefixesForDefaultIntent;
 
     // Caching
-
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    @Override
-    public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-        WebViewCacheInterceptorInst.getInstance().loadUrl(mWebView,request.getUrl().toString());
-        return true;
-    }
-
-    @Override
-    public boolean shouldOverrideUrlLoading(WebView view, String url) {
-        WebViewCacheInterceptorInst.getInstance().loadUrl(mWebView,url);
-        return true;
-    }
-
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     @Nullable
     @Override
@@ -773,6 +759,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     @Override
     public boolean shouldOverrideUrlLoading(WebView view, String url) {
       activeUrl = url;
+
       dispatchEvent(
         view,
         new TopShouldStartLoadWithRequestEvent(
@@ -784,7 +771,10 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
 
     @TargetApi(Build.VERSION_CODES.N)
     @Override
+
     public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+      WebViewCacheInterceptorInst.getInstance().loadUrl(view, request.getUrl().toString());
+
       final String url = request.getUrl().toString();
       return this.shouldOverrideUrlLoading(view, url);
     }

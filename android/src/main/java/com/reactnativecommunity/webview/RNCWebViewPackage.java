@@ -26,7 +26,7 @@ public class RNCWebViewPackage implements ReactPackage {
 
   @Override
   public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
-    WebViewCacheInterceptorInst.getInstance().init(new WebViewCacheInterceptor.Builder(reactApplicationContext));
+    WebViewCacheInterceptorInst.getInstance().init(new WebViewCacheInterceptor.Builder(reactContext));
 
     return Collections.singletonList(new RNCWebViewManager());
   }
